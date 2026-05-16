@@ -17,6 +17,7 @@ RUN pnpm install --frozen-lockfile
 FROM deps AS build
 COPY . .
 RUN pnpm --filter @server-probe/shared build
+RUN test -f /app/packages/shared/dist/index.d.ts && test -f /app/packages/shared/dist/index.js
 RUN pnpm --filter @server-probe/api build
 RUN pnpm --filter @server-probe/web build
 RUN pnpm --filter @server-probe/api db:push
