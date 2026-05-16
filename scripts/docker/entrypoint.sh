@@ -20,7 +20,44 @@ export DATABASE_URL
 
 mkdir -p /tmp/pm2
 
-pm2 start /app/apps/api/.output/server/index.mjs --name server-probe-api --cwd /app/apps/api
-pm2 start /app/apps/web/.output/server/index.mjs --name server-probe-web --cwd /app/apps/web
+PORT="${PROBE_API_PORT}" \
+NITRO_HOST=0.0.0.0 \
+NITRO_PORT="${PROBE_API_PORT}" \
+node /app/apps/api/.output/server/index.mjs &
+API_PID=$!
 
-exec pm2-runtime list
+HOST=0.0.0.0 \
+PORT="${PROBE_WEB_PORT}" \
+NITRO_HOST=0.0.0.0 \
+NITRO_PORT="${PROBE_WEB_PORT}" \
+node /app/apps/web/.output/server/index.mjs &
+WEB_PID=$!
+
+echo "[entrypoint] server-probe-api pid=${API_PID} port=${PROBE_API_PORT}"
+echo "[entrypoint] server-probe-web pid=${WEB_PID} port=${PROBE_WEB_PORT}"
+
+shutdown() {
+  kill "${API_PID}" "${WEB_PID}" 2>/dev/null || true
+}
+
+trap 'shutdown; exit 0' INT TERM
+
+while :; do
+  if ! kill -0 "${API_PID}" 2>/dev/null; then
+    wait "${API_PID}" || true
+    echo "[entrypoint] API process exited, stopping web process."
+    kill "${WEB_PID}" 2>/dev/null || true
+    wait "${WEB_PID}" 2>/dev/null || true
+    exit 1
+  fi
+
+  if ! kill -0 "${WEB_PID}" 2>/dev/null; then
+    wait "${WEB_PID}" || true
+    echo "[entrypoint] Web process exited, stopping api process."
+    kill "${API_PID}" 2>/dev/null || true
+    wait "${API_PID}" 2>/dev/null || true
+    exit 1
+  fi
+
+  sleep 2
+done

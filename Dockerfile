@@ -30,8 +30,6 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl git procps iproute2 lsof net-tools docker.io \
   && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g pm2@latest
-
 COPY --from=build /app/apps/api/.output /app/apps/api/.output
 COPY --from=build /app/apps/web/.output /app/apps/web/.output
 COPY --from=build /app/config /app/config
