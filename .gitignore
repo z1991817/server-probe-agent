@@ -5,7 +5,7 @@ node_modules/
 .data/
 dist/
 coverage/
-logs/
+/logs/
 *.tsbuildinfo
 .env
 .env.*
