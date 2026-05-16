@@ -16,11 +16,11 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY . .
-RUN pnpm --filter @server-probe/shared build
+RUN pnpm -C packages/shared build
 RUN test -f /app/packages/shared/dist/index.d.ts && test -f /app/packages/shared/dist/index.js
-RUN pnpm --filter @server-probe/api build
-RUN pnpm --filter @server-probe/web build
-RUN pnpm --filter @server-probe/api db:push
+RUN pnpm -C apps/api build
+RUN pnpm -C apps/web build
+RUN pnpm -C apps/api db:push
 
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
