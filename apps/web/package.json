@@ -1,0 +1,26 @@
+{
+  "name": "@server-probe/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --host 127.0.0.1 --port 5100",
+    "build": "nuxt build",
+    "preview": "nuxt preview --host 0.0.0.0 --port 5100",
+    "typecheck": "nuxt typecheck",
+    "lint": "nuxt typecheck",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@pinia/nuxt": "^0.11.3",
+    "@server-probe/shared": "workspace:*",
+    "nuxt": "^4.4.5",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.25"
+  },
+  "devDependencies": {
+    "@types/node": "^25.8.0",
+    "typescript": "^6.0.3",
+    "vue-tsc": "^3.2.9"
+  }
+}

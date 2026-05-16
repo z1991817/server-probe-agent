@@ -1,0 +1,29 @@
+{
+  "name": "@server-probe/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm prisma:generate && nitro dev --host 0.0.0.0 --port 5000",
+    "build": "pnpm prisma:generate && nitro build",
+    "preview": "node .output/server/index.mjs",
+    "typecheck": "pnpm prisma:generate && nitro prepare && tsc --noEmit",
+    "lint": "pnpm prisma:generate && nitro prepare && tsc --noEmit",
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:push": "prisma db push --schema prisma/schema.prisma --skip-generate",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "@server-probe/shared": "workspace:*",
+    "h3": "^1.15.11",
+    "nitropack": "^2.13.4",
+    "yaml": "^2.9.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.8.0",
+    "prisma": "6.19.3",
+    "typescript": "^6.0.3"
+  }
+}

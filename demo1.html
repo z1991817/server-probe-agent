@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>服务器运维控制台</title>
+  <style>
+    /* ── Design Tokens ─────────────────────────────────────────── */
+    :root {
+      --bg-base:      #0d1117;
+      --bg-surface:   #161b22;
+      --bg-elevated:  #1c2128;
+      --bg-overlay:   #21262d;
+      --border:       #30363d;
+      --border-muted: #21262d;
+
+      --text-primary:   #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted:     #484f58;
+
+      --accent-blue:   #58a6ff;
+      --accent-green:  #3fb950;
+      --accent-yellow: #d29922;
+      --accent-red:    #f85149;
+      --accent-purple: #bc8cff;
+      --accent-cyan:   #39d353;
+
+      --status-ok:      #3fb950;
+      --status-warn:    #d29922;
+      --status-error:   #f85149;
+      --status-offline: #484f58;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+
+      --shadow-card: 0 1px 3px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.2);
+      --shadow-glow-green: 0 0 12px rgba(63,185,80,.25);
+      --shadow-glow-red:   0 0 12px rgba(248,81,73,.25);
+
+      --font-sans: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+      --transition-fast: 150ms ease-out;
+      --transition-med:  250ms ease-out;
+    }
+
+    /* ── Reset ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      min-height: 100dvh;
+    }
+
+    /* ── Scrollbar ──────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-base); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .app { display: flex; height: 100dvh; overflow: hidden; }
+
+    /* ── Sidebar ────────────────────────────────────────────────── */
+    .sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      overflow-y: auto;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 20px 16px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-logo .logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #58a6ff 0%, #bc8cff 100%);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sidebar-logo .logo-icon svg { width: 18px; height: 18px; }
+    .sidebar-logo .logo-text { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+    .sidebar-logo .logo-sub  { font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
+
+    .sidebar-section {
+      padding: 16px 8px 8px;
+    }
+    .sidebar-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 0 8px;
+      margin-bottom: 4px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 13.5px;
+      color: var(--text-secondary);
+      transition: background var(--transition-fast), color var(--transition-fast);
+      user-select: none;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+    }
+    .nav-item:hover { background: var(--bg-elevated); color: var(--text-primary); }
+    .nav-item.active {
+      background: rgba(88,166,255,.12);
+      color: var(--accent-blue);
+    }
+    .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .nav-badge {
+      margin-left: auto;
+      background: var(--accent-red);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 99px;
+      line-height: 1.6;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 12px 8px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Main ───────────────────────────────────────────────────── */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Topbar ─────────────────────────────────────────────────── */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(13,17,23,.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .topbar-title { font-size: 15px; font-weight: 600; }
+    .topbar-subtitle { font-size: 12px; color: var(--text-secondary); margin-left: 4px; }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 500;
+      background: rgba(63,185,80,.1);
+      color: var(--status-ok);
+      border: 1px solid rgba(63,185,80,.25);
+    }
+    .status-pill .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--status-ok);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: .5; transform: scale(.85); }
+    }
+    .btn-icon {
+      width: 36px; height: 36px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+    }
+    .btn-icon:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--text-muted); }
+    .btn-icon svg { width: 16px; height: 16px; }
+
+    /* ── Content ────────────────────────────────────────────────── */
+    .content { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+
+    /* ── Section Header ─────────────────────────────────────────── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-title svg { width: 14px; height: 14px; }
+
+    /* ── Cards ──────────────────────────────────────────────────── */
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-card);
+    }
+    .card-inner { padding: 18px 20px; }
+
+    /* ── Metric Grid ────────────────────────────────────────────── */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+    .metric-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
+      transition: border-color var(--transition-med);
+    }
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      border-radius: var(--radius-md) var(--radius-md) 0 0;
+    }
+    .metric-card.blue::before   { background: linear-gradient(90deg, var(--accent-blue), #79c0ff); }
+    .metric-card.green::before  { background: linear-gradient(90deg, var(--accent-green), #56d364); }
+    .metric-card.yellow::before { background: linear-gradient(90deg, var(--accent-yellow), #e3b341); }
+    .metric-card.purple::before { background: linear-gradient(90deg, var(--accent-purple), #d2a8ff); }
+
+    .metric-card:hover { border-color: var(--text-muted); }
+
+    .metric-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .metric-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .metric-icon {
+      width: 32px; height: 32px;
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .metric-icon svg { width: 16px; height: 16px; }
+    .metric-icon.blue   { background: rgba(88,166,255,.12);  color: var(--accent-blue); }
+    .metric-icon.green  { background: rgba(63,185,80,.12);   color: var(--accent-green); }
+    .metric-icon.yellow { background: rgba(210,153,34,.12);  color: var(--accent-yellow); }
+    .metric-icon.purple { background: rgba(188,140,255,.12); color: var(--accent-purple); }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+      margin-bottom: 10px;
+    }
+    .metric-value sup { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+
+    /* ── Progress Bar ───────────────────────────────────────────── */
+    .progress-bar {
+      height: 4px;
+      background: var(--bg-overlay);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 1s ease-out;
+    }
+    .progress-fill.blue   { background: linear-gradient(90deg, var(--accent-blue), #79c0ff); }
+    .progress-fill.green  { background: linear-gradient(90deg, var(--accent-green), #56d364); }
+    .progress-fill.yellow { background: linear-gradient(90deg, var(--accent-yellow), #e3b341); }
+    .progress-fill.red    { background: linear-gradient(90deg, var(--accent-red), #ff7b72); }
+    .progress-fill.purple { background: linear-gradient(90deg, var(--accent-purple), #d2a8ff); }
+
+    .metric-footer {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Two-column grid ────────────────────────────────────────── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+    /* ── Network Chart Sparkline ───────────────────────────────── */
+    .sparkline-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 18px 20px;
+    }
+    .spark-item {}
+    .spark-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .spark-label .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .spark-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .spark-unit  { font-size: 11px; color: var(--text-secondary); margin-left: 2px; }
+    .spark-canvas { width: 100%; height: 56px; margin-top: 8px; display: block; }
+
+    /* ── Process Table ──────────────────────────────────────────── */
+    .proc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .proc-table th {
+      padding: 8px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-surface);
+    }
+    .proc-table th:last-child,
+    .proc-table td:last-child { text-align: right; }
+    .proc-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-muted);
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+      vertical-align: middle;
+    }
+    .proc-table tr:last-child td { border-bottom: none; }
+    .proc-table tr:hover td { background: var(--bg-elevated); }
+    .proc-name { font-weight: 500; }
+    .proc-pid  { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); margin-top: 1px; }
+    .mini-bar-wrap { width: 80px; height: 6px; background: var(--bg-overlay); border-radius: 99px; overflow: hidden; }
+    .mini-bar { height: 100%; border-radius: 99px; }
+
+    /* ── Project Health ─────────────────────────────────────────── */
+    .project-list { display: flex; flex-direction: column; gap: 0; }
+    .project-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border-muted);
+      transition: background var(--transition-fast);
+    }
+    .project-row:last-child { border-bottom: none; }
+    .project-row:hover { background: var(--bg-elevated); }
+
+    .project-status-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .project-status-dot.ok      { background: var(--status-ok); box-shadow: 0 0 6px rgba(63,185,80,.5); }
+    .project-status-dot.warn    { background: var(--status-warn); }
+    .project-status-dot.error   { background: var(--status-error); box-shadow: 0 0 6px rgba(248,81,73,.5); }
+    .project-status-dot.offline { background: var(--status-offline); }
+
+    .project-info { flex: 1; min-width: 0; }
+    .project-name { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .project-meta { font-size: 11px; color: var(--text-secondary); margin-top: 1px; font-family: var(--font-mono); }
+
+    .project-stats { display: flex; align-items: center; gap: 16px; font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+    .project-stat  { display: flex; align-items: center; gap: 4px; }
+
+    .project-actions { display: flex; gap: 6px; }
+    .btn-sm {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-secondary);
+      display: flex; align-items: center; gap: 5px;
+      transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+      white-space: nowrap;
+    }
+    .btn-sm:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--text-muted); }
+    .btn-sm svg   { width: 13px; height: 13px; }
+    .btn-sm.danger:hover { background: rgba(248,81,73,.12); color: var(--accent-red); border-color: rgba(248,81,73,.4); }
+    .btn-sm.primary:hover { background: rgba(88,166,255,.12); color: var(--accent-blue); border-color: rgba(88,166,255,.4); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .badge.ok      { background: rgba(63,185,80,.12);  color: var(--status-ok); }
+    .badge.warn    { background: rgba(210,153,34,.12); color: var(--status-warn); }
+    .badge.error   { background: rgba(248,81,73,.12);  color: var(--status-error); }
+    .badge.offline { background: rgba(72,79,88,.2);    color: var(--text-muted); }
+    .badge.blue    { background: rgba(88,166,255,.12); color: var(--accent-blue); }
+
+    /* ── Log Terminal ────────────────────────────────────────────── */
+    .log-terminal {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .log-header {
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .log-header-dots { display: flex; gap: 6px; }
+    .log-header-dots span {
+      width: 12px; height: 12px; border-radius: 50%;
+    }
+    .log-header-dots span:nth-child(1) { background: #ff5f57; }
+    .log-header-dots span:nth-child(2) { background: #ffbd2e; }
+    .log-header-dots span:nth-child(3) { background: #28ca41; }
+    .log-title { font-size: 12px; color: var(--text-secondary); font-family: var(--font-mono); flex: 1; text-align: center; }
+    .log-body {
+      padding: 14px 16px;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 1.7;
+      height: 220px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .log-line { display: flex; gap: 10px; }
+    .log-time { color: var(--text-muted); flex-shrink: 0; }
+    .log-lvl  { flex-shrink: 0; font-weight: 600; }
+    .log-lvl.info  { color: var(--accent-blue); }
+    .log-lvl.ok    { color: var(--accent-green); }
+    .log-lvl.warn  { color: var(--accent-yellow); }
+    .log-lvl.error { color: var(--accent-red); }
+    .log-msg       { color: var(--text-primary); }
+
+    /* ── Modal ──────────────────────────────────────────────────── */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.6);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-med);
+    }
+    .modal-backdrop.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      width: 520px;
+      max-width: calc(100vw - 32px);
+      box-shadow: 0 8px 40px rgba(0,0,0,.5);
+      transform: translateY(12px) scale(.97);
+      transition: transform var(--transition-med);
+    }
+    .modal-backdrop.open .modal { transform: translateY(0) scale(1); }
+    .modal-head {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .modal-icon {
+      width: 40px; height: 40px;
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .modal-icon.warn   { background: rgba(210,153,34,.15); color: var(--accent-yellow); }
+    .modal-icon.danger { background: rgba(248,81,73,.15);  color: var(--accent-red); }
+    .modal-icon.info   { background: rgba(88,166,255,.15); color: var(--accent-blue); }
+    .modal-icon svg    { width: 20px; height: 20px; }
+    .modal-title    { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .modal-subtitle { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+    .modal-body   { padding: 20px 24px; }
+    .modal-footer {
+      padding: 0 24px 20px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .btn {
+      height: 36px;
+      padding: 0 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      transition: all var(--transition-fast);
+      border: 1px solid transparent;
+    }
+    .btn svg { width: 14px; height: 14px; }
+    .btn-ghost {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--text-secondary);
+    }
+    .btn-ghost:hover { background: var(--bg-elevated); color: var(--text-primary); }
+    .btn-danger {
+      background: var(--accent-red);
+      border-color: var(--accent-red);
+      color: #fff;
+    }
+    .btn-danger:hover { background: #da3633; }
+    .btn-primary {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: #0d1117;
+      font-weight: 600;
+    }
+    .btn-primary:hover { background: #79c0ff; }
+
+    /* ── Modal Log ───────────────────────────────────────────────── */
+    .modal-log {
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.8;
+      height: 200px;
+      overflow-y: auto;
+      color: var(--accent-green);
+    }
+    .modal-log .muted { color: var(--text-muted); }
+
+    /* ── Toast ───────────────────────────────────────────────────── */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.4);
+      pointer-events: all;
+      animation: toastIn 250ms ease-out forwards;
+      min-width: 260px;
+    }
+    .toast.hide { animation: toastOut 200ms ease-in forwards; }
+    @keyframes toastIn  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    @keyframes toastOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(6px); } }
+    .toast-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .toast.ok   .toast-dot { background: var(--status-ok); }
+    .toast.warn .toast-dot { background: var(--status-warn); }
+    .toast.info .toast-dot { background: var(--accent-blue); }
+
+    /* ── Divider ─────────────────────────────────────────────────── */
+    .divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @media (max-width: 1100px) {
+      .metric-grid { grid-template-columns: repeat(2, 1fr); }
+      .three-col   { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .metric-grid { grid-template-columns: 1fr 1fr; }
+      .two-col, .three-col { grid-template-columns: 1fr; }
+      .project-stats { display: none; }
+      .content { padding: 16px; }
+    }
+    @media (max-width: 480px) {
+      .metric-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══════════════════════════ Sidebar ═══════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-text">OpsConsole</div>
+        <div class="logo-sub">v2.4.1 · prod</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">监控</div>
+      <button class="nav-item active" onclick="switchTab(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        概览
+      </button>
+      <button class="nav-item" onclick="switchTab(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        实时指标
+      </button>
+      <button class="nav-item" onclick="switchTab(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        告警
+        <span class="nav-badge">3</span>
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">运维</div>
+      <button class="nav-item" onclick="switchTab(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        服务管理
+      </button>
+      <button class="nav-item" onclick="switchTab(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        日志中心
+      </button>
+      <button class="nav-item" onclick="switchTab(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        任务调度
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">系统</div>
+      <button class="nav-item" onclick="switchTab(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41"/></svg>
+        配置
+      </button>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        退出登录
+      </button>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════ Main ══════════════════════════════ -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <span class="topbar-title">服务器概览</span>
+      <span class="topbar-subtitle" id="currentTime"></span>
+      <div class="topbar-right">
+        <div class="status-pill">
+          <span class="dot"></span>
+          系统运行正常
+        </div>
+        <button class="btn-icon" title="刷新数据" onclick="refreshData()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        </button>
+        <button class="btn-icon" title="设置">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Page Content -->
+    <div class="content">
+
+      <!-- ── 资源指标 ────────────────────────────────────────────── -->
+      <div>
+        <div class="section-header">
+          <span class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            系统资源
+          </span>
+          <span style="font-size:12px;color:var(--text-muted);">每 5 秒自动刷新</span>
+        </div>
+
+        <div class="metric-grid">
+          <!-- CPU -->
+          <div class="metric-card blue">
+            <div class="metric-head">
+              <span class="metric-label">CPU 使用率</span>
+              <span class="metric-icon blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="2" x2="9" y2="4"/><line x1="15" y1="2" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="22"/><line x1="15" y1="20" x2="15" y2="22"/><line x1="20" y1="9" x2="22" y2="9"/><line x1="20" y1="14" x2="22" y2="14"/><line x1="2" y1="9" x2="4" y2="9"/><line x1="2" y1="14" x2="4" y2="14"/></svg>
+              </span>
+            </div>
+            <div class="metric-value" id="cpu-val">63<sup>%</sup></div>
+            <div class="progress-bar"><div class="progress-fill blue" id="cpu-bar" style="width:63%"></div></div>
+            <div class="metric-footer"><span>8 核心 · 3.2 GHz</span><span id="cpu-temp">42°C</span></div>
+          </div>
+
+          <!-- Memory -->
+          <div class="metric-card green">
+            <div class="metric-head">
+              <span class="metric-label">内存使用</span>
+              <span class="metric-icon green">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12H2M5 12V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v5M5 12v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/><line x1="9" y1="7" x2="9" y2="12"/><line x1="15" y1="7" x2="15" y2="12"/></svg>
+              </span>
+            </div>
+            <div class="metric-value" id="mem-val">11.4<sup>GB</sup></div>
+            <div class="progress-bar"><div class="progress-fill green" id="mem-bar" style="width:71%"></div></div>
+            <div class="metric-footer"><span>总计 16 GB</span><span id="mem-free">4.6 GB 空闲</span></div>
+          </div>
+
+          <!-- Disk -->
+          <div class="metric-card yellow">
+            <div class="metric-head">
+              <span class="metric-label">磁盘使用</span>
+              <span class="metric-icon yellow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+              </span>
+            </div>
+            <div class="metric-value">378<sup>GB</sup></div>
+            <div class="progress-bar"><div class="progress-fill yellow" style="width:75%"></div></div>
+            <div class="metric-footer"><span>总计 500 GB · SSD</span><span>122 GB 剩余</span></div>
+          </div>
+
+          <!-- Network -->
+          <div class="metric-card purple">
+            <div class="metric-head">
+              <span class="metric-label">网络 I/O</span>
+              <span class="metric-icon purple">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12H19M12 5l7 7-7 7"/></svg>
+              </span>
+            </div>
+            <div class="metric-value" id="net-val">12.4<sup>MB/s</sup></div>
+            <div class="progress-bar"><div class="progress-fill purple" id="net-bar" style="width:25%"></div></div>
+            <div class="metric-footer"><span id="net-in">↑ 3.2 MB/s</span><span id="net-out">↓ 9.2 MB/s</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 进程 + 网络 ─────────────────────────────────────────── -->
+      <div class="two-col">
+
+        <!-- Process Table -->
+        <div>
+          <div class="section-header">
+            <span class="section-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              进程 TOP 6
+            </span>
+            <button class="btn-sm">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              全部进程
+            </button>
+          </div>
+          <div class="card">
+            <table class="proc-table">
+              <thead>
+                <tr>
+                  <th>进程</th>
+                  <th>CPU</th>
+                  <th>内存</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody id="proc-tbody">
+                <!-- filled by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Network Chart -->
+        <div>
+          <div class="section-header">
+            <span class="section-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.05 12A11 11 0 0 1 23 12"/><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0-18 0"/></svg>
+              网络流量
+            </span>
+          </div>
+          <div class="card">
+            <div class="sparkline-wrap">
+              <div class="spark-item">
+                <div class="spark-label">
+                  <span class="dot" style="background:var(--accent-blue)"></span>
+                  上行带宽
+                </div>
+                <div><span class="spark-value" id="spark-up-val">3.2</span><span class="spark-unit">MB/s</span></div>
+                <canvas class="spark-canvas" id="spark-up"></canvas>
+              </div>
+              <div class="spark-item">
+                <div class="spark-label">
+                  <span class="dot" style="background:var(--accent-purple)"></span>
+                  下行带宽
+                </div>
+                <div><span class="spark-value" id="spark-down-val">9.2</span><span class="spark-unit">MB/s</span></div>
+                <canvas class="spark-canvas" id="spark-down"></canvas>
+              </div>
+            </div>
+            <div style="padding:0 20px 16px;display:flex;gap:24px;font-size:12px;color:var(--text-secondary);">
+              <span>今日总流量 <strong style="color:var(--text-primary)">124.8 GB</strong></span>
+              <span>连接数 <strong style="color:var(--text-primary)" id="conn-count">247</strong></span>
+              <span>延迟 <strong style="color:var(--accent-green)" id="latency">12 ms</strong></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 项目健康状态 ────────────────────────────────────────── -->
+      <div>
+        <div class="section-header">
+          <span class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            项目健康状态
+          </span>
+          <button class="btn-sm primary" onclick="showToast('正在扫描所有项目…', 'info')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            全量检查
+          </button>
+        </div>
+        <div class="card">
+          <div class="project-list" id="project-list">
+            <!-- filled by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 日志 ───────────────────────────────────────────────── -->
+      <div>
+        <div class="section-header">
+          <span class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            系统日志
+          </span>
+          <div style="display:flex;gap:8px">
+            <span class="badge blue">实时</span>
+            <button class="btn-sm" onclick="clearLog()">清空</button>
+          </div>
+        </div>
+        <div class="log-terminal">
+          <div class="log-header">
+            <div class="log-header-dots">
+              <span></span><span></span><span></span>
+            </div>
+            <div class="log-title">server.log — tail -f</div>
+          </div>
+          <div class="log-body" id="log-body">
+            <!-- filled by JS -->
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ═══════════ Modal: Restart Confirm ════════════ -->
+<div class="modal-backdrop" id="modal-restart">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-icon warn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <div>
+        <div class="modal-title">确认重启服务</div>
+        <div class="modal-subtitle">即将重启 <strong id="restart-target"></strong>，服务将短暂中断（约 10–30 秒），期间请求将失败。</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-restart')">取消</button>
+      <button class="btn btn-danger" onclick="execRestart()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        确认重启
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ Modal: Log View ════════════ -->
+<div class="modal-backdrop" id="modal-log">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-icon info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div>
+        <div class="modal-title" id="log-modal-title">日志查看</div>
+        <div class="modal-subtitle">最近 50 行 · 实时追加</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-log" id="modal-log-body"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-log')">关闭</button>
+      <button class="btn btn-primary" onclick="showToast('日志已下载', 'ok')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        下载日志
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ Modal: Service Check ════════════ -->
+<div class="modal-backdrop" id="modal-check">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-icon info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div>
+        <div class="modal-title" id="check-modal-title">服务状态检查</div>
+        <div class="modal-subtitle" id="check-modal-sub"></div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-log" id="check-log-body" style="color:var(--text-primary)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-check')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ── Data ────────────────────────────────────────────────────────────
+const PROJECTS = [
+  { name: 'api-gateway',      stack: 'Node.js · PM2',     port: 3000, status: 'ok',      uptime: '12d 4h',  cpu: 4.2,  mem: '312 MB', reqs: '1,240/s' },
+  { name: 'web-frontend',     stack: 'Nginx · React',     port: 80,   status: 'ok',      uptime: '12d 4h',  cpu: 0.8,  mem: '86 MB',  reqs: '980/s' },
+  { name: 'auth-service',     stack: 'Python · Gunicorn', port: 8001, status: 'warn',    uptime: '2d 1h',   cpu: 12.4, mem: '480 MB', reqs: '340/s' },
+  { name: 'data-pipeline',    stack: 'Python · Celery',   port: null, status: 'ok',      uptime: '5d 7h',   cpu: 8.6,  mem: '624 MB', reqs: '—' },
+  { name: 'notification-svc', stack: 'Go · Binary',       port: 9000, status: 'error',   uptime: '0d 0h',   cpu: 0,    mem: '—',      reqs: '—' },
+  { name: 'file-storage',     stack: 'MinIO · S3',        port: 9001, status: 'ok',      uptime: '30d 0h',  cpu: 1.2,  mem: '256 MB', reqs: '120/s' },
+  { name: 'scheduler',        stack: 'Node.js · Cron',    port: null, status: 'ok',      uptime: '8d 3h',   cpu: 0.4,  mem: '128 MB', reqs: '—' },
+];
+
+const PROCS = [
+  { name: 'node',    pid: 1842, cpu: 18.4, mem: 4.2 },
+  { name: 'python3', pid: 3021, cpu: 12.4, mem: 3.0 },
+  { name: 'nginx',   pid: 512,  cpu: 0.8,  mem: 0.5 },
+  { name: 'postgres',pid: 890,  cpu: 6.2,  mem: 8.4 },
+  { name: 'redis',   pid: 904,  cpu: 0.3,  mem: 1.1 },
+  { name: 'go-bin',  pid: 4412, cpu: 4.1,  mem: 0.9 },
+];
+
+const FAKE_LOGS = [
+  ['INFO',  'api-gateway:    GET /api/v2/users 200 18ms'],
+  ['OK',    'data-pipeline:  batch job #4821 completed (1,240 rows)'],
+  ['INFO',  'auth-service:   POST /auth/token 200 42ms'],
+  ['WARN',  'auth-service:   high memory usage 480MB (threshold 400MB)'],
+  ['INFO',  'web-frontend:   static assets served 304'],
+  ['INFO',  'scheduler:      cron job "daily-report" triggered'],
+  ['ERROR', 'notification-svc: connection refused on :9000'],
+  ['INFO',  'file-storage:   PUT /bucket/img_9823.webp 201 88ms'],
+  ['INFO',  'api-gateway:    GET /api/v2/orders 200 23ms'],
+  ['WARN',  'postgres:       slow query detected (340ms) on table events'],
+];
+
+// ── State ────────────────────────────────────────────────────────────
+let sparkUpData   = Array.from({length: 30}, () => 2 + Math.random() * 5);
+let sparkDownData = Array.from({length: 30}, () => 6 + Math.random() * 8);
+let restartTarget = '';
+let logIndex = 0;
+
+// ── Init ─────────────────────────────────────────────────────────────
+function init() {
+  renderProcesses();
+  renderProjects();
+  renderInitialLog();
+  drawSparklines();
+  updateClock();
+  setInterval(updateClock, 1000);
+  setInterval(tickMetrics, 5000);
+  setInterval(tickLog, 4000);
+  setInterval(drawSparklines, 3000);
+}
+
+// ── Clock ────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('currentTime').textContent =
+    now.toLocaleDateString('zh-CN') + ' ' +
+    now.toLocaleTimeString('zh-CN', {hour12: false});
+}
+
+// ── Process Render ───────────────────────────────────────────────────
+function renderProcesses() {
+  const tbody = document.getElementById('proc-tbody');
+  tbody.innerHTML = PROCS.map(p => {
+    const cpuPct = Math.min(p.cpu, 100);
+    const cpuColor = cpuPct > 50 ? 'red' : cpuPct > 30 ? 'yellow' : 'blue';
+    return `
+    <tr>
+      <td>
+        <div class="proc-name">${p.name}</div>
+        <div class="proc-pid">PID ${p.pid}</div>
+      </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="mini-bar-wrap">
+            <div class="mini-bar progress-fill ${cpuColor}" style="width:${cpuPct}%"></div>
+          </div>
+          <span style="font-size:12px;color:var(--text-secondary);font-variant-numeric:tabular-nums">${p.cpu}%</span>
+        </div>
+      </td>
+      <td style="font-size:12px;color:var(--text-secondary)">${p.mem}%</td>
+      <td><span class="badge ok">运行中</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Project Render ───────────────────────────────────────────────────
+function renderProjects() {
+  const list = document.getElementById('project-list');
+  list.innerHTML = PROJECTS.map(p => {
+    const sLabel = { ok:'正常', warn:'警告', error:'异常', offline:'离线' }[p.status];
+    return `
+    <div class="project-row">
+      <span class="project-status-dot ${p.status}" title="${sLabel}"></span>
+      <div class="project-info">
+        <div class="project-name">${p.name}</div>
+        <div class="project-meta">${p.stack}${p.port ? ' · :' + p.port : ''} · 运行时长 ${p.uptime}</div>
+      </div>
+      <div class="project-stats">
+        <span class="project-stat">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg>
+          CPU ${p.cpu}%
+        </span>
+        <span class="project-stat">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12H2"/></svg>
+          ${p.mem}
+        </span>
+        <span class="project-stat">${p.reqs}</span>
+        <span class="badge ${p.status}">${sLabel}</span>
+      </div>
+      <div class="project-actions">
+        <button class="btn-sm" onclick="openLogModal('${p.name}')" title="查看日志">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          日志
+        </button>
+        <button class="btn-sm" onclick="openCheckModal('${p.name}', '${p.status}')" title="状态检查">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          检查
+        </button>
+        <button class="btn-sm ${p.status==='ok'?'':'danger'}" onclick="openRestartModal('${p.name}')" title="重启服务">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          重启
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Log Render ───────────────────────────────────────────────────────
+function renderInitialLog() {
+  const body = document.getElementById('log-body');
+  FAKE_LOGS.forEach(([lvl, msg]) => appendLog(lvl, msg, body));
+  scrollLogBottom(body);
+}
+
+function appendLog(lvl, msg, container) {
+  const now = new Date();
+  const ts = now.toTimeString().slice(0,8);
+  const lvlMap = { INFO:'info', OK:'ok', WARN:'warn', ERROR:'error' };
+  const div = document.createElement('div');
+  div.className = 'log-line';
+  div.innerHTML = `<span class="log-time">${ts}</span><span class="log-lvl ${lvlMap[lvl]||'info'}">${lvl.padEnd(5)}</span><span class="log-msg">${msg}</span>`;
+  container.appendChild(div);
+  if (container.children.length > 200) container.removeChild(container.firstChild);
+}
+
+function scrollLogBottom(el) { el.scrollTop = el.scrollHeight; }
+
+function clearLog() {
+  document.getElementById('log-body').innerHTML = '';
+  showToast('日志已清空', 'info');
+}
+
+function tickLog() {
+  const body = document.getElementById('log-body');
+  const entry = FAKE_LOGS[logIndex % FAKE_LOGS.length];
+  logIndex++;
+  appendLog(entry[0], entry[1], body);
+  scrollLogBottom(body);
+}
+
+// ── Metrics tick ─────────────────────────────────────────────────────
+function tickMetrics() {
+  const cpu  = Math.max(10, Math.min(95, parseFloat(document.getElementById('cpu-val').textContent) + (Math.random()-0.45)*8)).toFixed(0);
+  const memPct = Math.max(40, Math.min(92, 71 + (Math.random()-0.5)*6)).toFixed(0);
+  const memGB  = (16 * memPct / 100).toFixed(1);
+  const netUp  = (1 + Math.random()*8).toFixed(1);
+  const netDn  = (5 + Math.random()*12).toFixed(1);
+
+  document.getElementById('cpu-val').innerHTML  = `${cpu}<sup>%</sup>`;
+  document.getElementById('cpu-bar').style.width = cpu + '%';
+  document.getElementById('cpu-bar').className = 'progress-fill ' + (cpu > 80 ? 'red' : cpu > 60 ? 'yellow' : 'blue');
+
+  document.getElementById('mem-val').innerHTML  = `${memGB}<sup>GB</sup>`;
+  document.getElementById('mem-bar').style.width = memPct + '%';
+  document.getElementById('mem-free').textContent = (16 - memGB).toFixed(1) + ' GB 空闲';
+
+  document.getElementById('net-val').innerHTML = `${netUp}<sup>MB/s</sup>`;
+  document.getElementById('net-bar').style.width = Math.min(100, parseFloat(netUp)/50*100) + '%';
+  document.getElementById('net-in').textContent  = `↑ ${netUp} MB/s`;
+  document.getElementById('net-out').textContent = `↓ ${netDn} MB/s`;
+
+  document.getElementById('spark-up-val').textContent   = netUp;
+  document.getElementById('spark-down-val').textContent = netDn;
+  document.getElementById('conn-count').textContent = (200 + Math.floor(Math.random()*100));
+  document.getElementById('latency').textContent = (8 + Math.floor(Math.random()*20)) + ' ms';
+
+  sparkUpData.push(parseFloat(netUp));   sparkUpData.shift();
+  sparkDownData.push(parseFloat(netDn)); sparkDownData.shift();
+  drawSparklines();
+}
+
+// ── Sparklines ───────────────────────────────────────────────────────
+function drawSparkline(canvasId, data, color) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.offsetWidth;
+  const h = canvas.offsetHeight;
+  canvas.width  = w * dpr;
+  canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const max = Math.max(...data) * 1.1 || 1;
+  const min = 0;
+  const pts = data.map((v, i) => ({
+    x: i / (data.length - 1) * w,
+    y: h - (v - min) / (max - min) * h * 0.85 - h * 0.05
+  }));
+
+  // gradient fill
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, color + '40');
+  grad.addColorStop(1, color + '00');
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, h);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, h);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // line
+  ctx.beginPath();
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+}
+
+function drawSparklines() {
+  drawSparkline('spark-up',   sparkUpData,   '#58a6ff');
+  drawSparkline('spark-down', sparkDownData, '#bc8cff');
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-backdrop').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(el => closeModal(el.id));
+});
+
+function openRestartModal(name) {
+  restartTarget = name;
+  document.getElementById('restart-target').textContent = name;
+  openModal('modal-restart');
+}
+
+function execRestart() {
+  closeModal('modal-restart');
+  showToast(`${restartTarget} 重启指令已发送`, 'warn');
+  setTimeout(() => showToast(`${restartTarget} 重启成功`, 'ok'), 3500);
+  const body = document.getElementById('log-body');
+  appendLog('WARN', `operator: restart ${restartTarget} initiated`, body);
+  scrollLogBottom(body);
+}
+
+function openLogModal(name) {
+  document.getElementById('log-modal-title').textContent = `${name} · 日志`;
+  const body = document.getElementById('modal-log-body');
+  body.innerHTML = '';
+  const lines = [
+    `<span class="muted">[系统]</span> 正在连接到 ${name} 日志流…`,
+    ...Array.from({length: 12}, (_, i) => {
+      const lvls = ['INFO', 'INFO', 'INFO', 'WARN', 'INFO'];
+      const msgs = [
+        `request processed in ${10+i*3}ms`,
+        `health check passed`,
+        `cache hit ratio 94.${i}%`,
+        `memory usage climbing: ${300+i*15}MB`,
+        `connection pool: ${10+i}/50`,
+      ];
+      const now = new Date(Date.now() - (12-i)*18000);
+      const ts = now.toTimeString().slice(0,8);
+      const lvl = lvls[i%lvls.length];
+      const msg = msgs[i%msgs.length];
+      const c = {INFO:'#58a6ff',WARN:'#d29922',ERROR:'#f85149',OK:'#3fb950'}[lvl];
+      return `<span style="color:var(--text-muted)">${ts}</span> <span style="color:${c}">${lvl.padEnd(5)}</span> ${msg}`;
+    })
+  ];
+  body.innerHTML = lines.join('<br>');
+  openModal('modal-log');
+}
+
+function openCheckModal(name, status) {
+  document.getElementById('check-modal-title').textContent = `${name} · 状态检查`;
+  document.getElementById('check-modal-sub').textContent = `正在检查服务 ${name} 的健康状态`;
+  const body = document.getElementById('check-log-body');
+
+  const isError = status === 'error';
+  const checks = [
+    { label: '进程状态', ok: !isError, msg: isError ? '进程未运行' : 'PID 活跃' },
+    { label: '端口监听', ok: !isError, msg: isError ? 'connection refused' : '端口正常响应' },
+    { label: '健康检查 /health', ok: status === 'ok', msg: status === 'ok' ? 'HTTP 200 OK · 12ms' : status === 'warn' ? 'HTTP 200 但响应慢 (340ms)' : 'HTTP 连接失败' },
+    { label: '数据库连接', ok: true, msg: 'ping 3ms' },
+    { label: '内存阈值', ok: status !== 'warn', msg: status === 'warn' ? '480MB / 400MB 阈值 ⚠️' : '正常' },
+    { label: '日志文件可写', ok: true, msg: '/var/log/app.log 可写' },
+  ];
+
+  body.innerHTML = checks.map(c => {
+    const icon = c.ok ? '✓' : '✗';
+    const color = c.ok ? 'var(--accent-green)' : 'var(--accent-red)';
+    return `<div style="margin-bottom:6px"><span style="color:${color};margin-right:8px">${icon}</span><strong style="color:var(--text-secondary)">${c.label}</strong> — ${c.msg}</div>`;
+  }).join('');
+
+  openModal('modal-check');
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────
+function showToast(msg, type = 'info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span class="toast-dot"></span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(() => {
+    t.classList.add('hide');
+    setTimeout(() => t.remove(), 220);
+  }, 3500);
+}
+
+// ── Nav Tab ───────────────────────────────────────────────────────────
+function switchTab(el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ── Refresh ───────────────────────────────────────────────────────────
+function refreshData() {
+  tickMetrics();
+  showToast('数据已刷新', 'ok');
+}
+
+// ── Window resize → redraw ────────────────────────────────────────────
+window.addEventListener('resize', drawSparklines);
+
+init();
+</script>
+</body>
+</html>

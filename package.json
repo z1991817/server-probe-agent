@@ -1,0 +1,23 @@
+{
+  "name": "server-probe-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.1",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @server-probe/api --filter @server-probe/web dev",
+    "dev:api": "pnpm --filter @server-probe/api dev",
+    "dev:web": "pnpm --filter @server-probe/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

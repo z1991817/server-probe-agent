@@ -1,0 +1,33 @@
+version: 1
+projects:
+  - id: my-project-api
+    name: My Project API (PM2)
+    deploy_path: /root/my-project
+    port: 3000
+    process_manager: pm2
+    start_cmd: "pm2 start my-project-api"
+    stop_cmd: "pm2 stop my-project-api"
+    restart_cmd: "pm2 restart my-project-api"
+    status_cmd: "pm2 describe my-project-api"
+    log_files:
+      - /root/.pm2/logs/my-project-api-out-0.log
+      - /root/.pm2/logs/my-project-api-out-2.log
+      - /root/.pm2/logs/my-project-api-error-0.log
+      - /root/.pm2/logs/my-project-api-error-2.log
+    health_check:
+      type: http
+      url: http://127.0.0.1:3000/healthz
+
+  - id: artimg-pro
+    name: Artimg Pro (Docker)
+    deploy_path: /root
+    port: 8080
+    process_manager: docker
+    start_cmd: "docker start artimg-pro"
+    stop_cmd: "docker stop artimg-pro"
+    restart_cmd: "docker restart artimg-pro"
+    status_cmd: "docker inspect -f '{{.State.Status}}' artimg-pro"
+    log_files: []
+    health_check:
+      type: http
+      url: http://127.0.0.1:8080/
