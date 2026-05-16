@@ -5,10 +5,10 @@ projects:
     deploy_path: /root/my-project
     port: 3000
     process_manager: pm2
-    start_cmd: "pm2 start my-project-api"
-    stop_cmd: "pm2 stop my-project-api"
-    restart_cmd: "pm2 restart my-project-api"
-    status_cmd: "pm2 describe my-project-api"
+    start_cmd: "env PM2_HOME=/root/.pm2 pm2 start my-project-api"
+    stop_cmd: "env PM2_HOME=/root/.pm2 pm2 stop my-project-api"
+    restart_cmd: "env PM2_HOME=/root/.pm2 pm2 restart my-project-api"
+    status_cmd: "env PM2_HOME=/root/.pm2 pm2 describe my-project-api"
     log_files:
       - /root/.pm2/logs/my-project-api-out-0.log
       - /root/.pm2/logs/my-project-api-out-2.log

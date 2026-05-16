@@ -31,3 +31,44 @@ pnpm dev:web
 - `pnpm dev:api`：启动 Nitro/h3 API，监听 `5000`。
 - `pnpm dev:web`：启动 Nuxt Web，监听 `5100`。
 - `NUXT_PUBLIC_API_BASE` 默认值为 `http://localhost:5000`，可参考 `.env.example`。
+
+## Docker Compose 部署
+
+生产环境推荐使用 Docker Compose。
+
+1. 准备环境变量
+
+```bash
+cp .env.example .env
+```
+
+必改项：
+
+- `PROBE_ADMIN_PASSWORD`
+- `PROBE_SESSION_SECRET`
+
+2. 若宿主机 PM2 不在 `/root/.pm2`，设置宿主机 PM2 路径
+
+```bash
+export HOST_PM2_HOME=/root/.pm2
+```
+
+3. 启动服务
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+4. 验证
+
+```bash
+curl -f http://127.0.0.1:5000/health
+curl -I http://127.0.0.1:5100/
+```
+
+说明：
+
+- Compose 使用 `host` 网络，固定监听端口：API `5000`、Web `5100`。
+- 挂载了 `./config`、`./data`，以及宿主机 `docker.sock`、PM2 目录，便于探针纳管宿主机 Docker 与 PM2 项目。
+- 如果纳管的是宿主机 PM2 进程，`config/projects.yaml` 中 PM2 命令建议显式带上 `PM2_HOME=/root/.pm2`。

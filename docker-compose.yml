@@ -1,0 +1,26 @@
+services:
+  server-probe:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: server-probe
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PROBE_API_PORT: "5000"
+      PROBE_WEB_PORT: "5100"
+      NUXT_PUBLIC_API_BASE: "http://127.0.0.1:5000"
+      PROBE_PROJECTS_CONFIG_PATH: "/app/config/projects.yaml"
+      DATABASE_URL: "file:/app/data/server-probe.sqlite"
+      PM2_HOME: "/tmp/pm2"
+    network_mode: host
+    pid: host
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOST_PM2_HOME:-/root/.pm2}:/root/.pm2
+      - ${HOST_MANAGED_ROOT:-/root}:/root
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+.git
+.gitignore
+.nuxt
+**/.nuxt
+.nitro
+**/.nitro
+.output
+**/.output
+dist
+**/dist
+coverage
+logs
+*.tsbuildinfo
+data/*.sqlite
+data/*.sqlite-*
