@@ -16,8 +16,9 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY . .
-RUN pnpm build
-RUN pnpm --filter @server-probe/api prisma:generate
+RUN pnpm --filter @server-probe/shared build
+RUN pnpm --filter @server-probe/api build
+RUN pnpm --filter @server-probe/web build
 RUN pnpm --filter @server-probe/api db:push
 
 FROM node:24-bookworm-slim AS runtime
